@@ -36,9 +36,7 @@
 
     .content { padding:20px; max-width:680px; margin:0 auto; }
 
-    .day-nav { display:flex; gap:8px; margin-bottom:20px; overflow-x:auto; padding-bottom:4px; -webkit-overflow-scrolling:touch; }
-    .day-chip { background:#111; border:2px solid #1e1e1e; color:#fff; border-radius:20px; padding:8px 16px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; font-family:'Roboto Flex',sans-serif; flex-shrink:0; }
-    .day-chip.active { background:#4a9c2f; border-color:#4a9c2f; }
+    .day-nav { display:none; }
 
     .booking-card { background:#111; border:1px solid #1e1e1e; border-radius:12px; padding:16px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; }
     .booking-card.blocked { background:#1a0808; border-color:#ff4444; }
@@ -103,8 +101,22 @@
   </div>
 
   <div id="panel-calendar" class="content">
-    <div class="day-nav" id="dayNav"></div>
-    <div id="bookingList"><div class="loading">Lädt...</div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <button onclick="prevMonth()" style="background:#111;border:2px solid #1e1e1e;color:#4a9c2f;border-radius:8px;padding:8px 16px;font-size:18px;cursor:pointer;">‹</button>
+      <div id="calMonthLabel" style="font-family:'Phudu',sans-serif;font-size:18px;font-weight:900;"></div>
+      <button onclick="nextMonth()" style="background:#111;border:2px solid #1e1e1e;color:#4a9c2f;border-radius:8px;padding:8px 16px;font-size:18px;cursor:pointer;">›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:8px;">
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">Mo</div>
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">Di</div>
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">Mi</div>
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">Do</div>
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">Fr</div>
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">Sa</div>
+      <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">So</div>
+    </div>
+    <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:20px;"></div>
+    <div id="bookingList"><div class="loading">Tag auswählen...</div></div>
   </div>
 
   <div id="panel-add" class="content" style="display:none">
@@ -178,6 +190,16 @@ const MONTH_SHORT = ["Jan","Feb","Mär","Apr","Mai","Jun","Jul","Aug","Sep","Okt
 
 function fmtDate(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function todayStr() { return fmtDate(new Date()); }
+function getDateValue(id) {
+  const val = document.getElementById(id).value;
+  if (!val) return '';
+  // Convert DD.MM.YYYY to YYYY-MM-DD if needed
+  if (val.includes('.')) {
+    const parts = val.split('.');
+    return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+  }
+  return val;
+}
 function fmtHour(h) { return `${String(h>=24?h-24:h).padStart(2,'0')}:00`; }
 
 async function sb(method, path, body=null) {
@@ -270,28 +292,79 @@ let currentDate = todayStr();
 function initApp() {
   buildDayNav();
   loadCalendar(currentDate);
-  document.getElementById('addDate').value = todayStr();
-  document.getElementById('blockDate').value = todayStr();
+  getDateValue('addDate') = todayStr();
+  getDateValue('blockDate') = todayStr();
   buildHourSelect();
 }
 
-function buildDayNav() {
-  const nav = document.getElementById('dayNav');
-  nav.innerHTML = '';
-  for (let i=-1; i<=6; i++) {
-    const d = new Date(); d.setDate(d.getDate()+i);
-    const ds = fmtDate(d);
-    const chip = document.createElement('button');
-    chip.className = 'day-chip'+(ds===currentDate?' active':'');
-    chip.textContent = i===0?'Heute':i===1?'Morgen':`${DAY_NAMES[d.getDay()]} ${d.getDate()}. ${MONTH_SHORT[d.getMonth()]}`;
-    chip.onclick = () => {
-      document.querySelectorAll('.day-chip').forEach(c=>c.classList.remove('active'));
-      chip.classList.add('active');
+const MONTH_NAMES_FULL = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+function prevMonth() { if (calMonth===0){calMonth=11;calYear--;}else calMonth--; buildCalGrid(); }
+function nextMonth() { if (calMonth===11){calMonth=0;calYear++;}else calMonth++; buildCalGrid(); }
+
+async function buildCalGrid() {
+  document.getElementById('calMonthLabel').textContent = `${MONTH_NAMES_FULL[calMonth]} ${calYear}`;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+
+  // Load bookings for whole month
+  const monthStr = `${calYear}-${String(calMonth+1).padStart(2,'0')}`;
+  let monthBookings = [];
+  try {
+    const res = await fetch(`/api/bookings?month=${monthStr}`);
+    const text = await res.text();
+    monthBookings = text ? JSON.parse(text) : [];
+  } catch(e) {}
+  const bookedDates = new Set((Array.isArray(monthBookings)?monthBookings:[]).map(b=>b.date));
+
+  const firstDay = new Date(calYear, calMonth, 1).getDay();
+  const offset = firstDay === 0 ? 6 : firstDay - 1;
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const today = todayStr();
+
+  // Empty cells
+  for (let i=0; i<offset; i++) {
+    grid.appendChild(Object.assign(document.createElement('div'), {style: ''}));
+  }
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const ds = `${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = ds === today;
+    const isSelected = ds === currentDate;
+    const hasBooking = bookedDates.has(ds);
+
+    const btn = document.createElement('button');
+    btn.textContent = d;
+    btn.style.cssText = `
+      background:${isSelected?'#4a9c2f':isToday?'#1a2a10':'#111'};
+      border:2px solid ${isSelected?'#4a9c2f':isToday?'#4a9c2f':'#1e1e1e'};
+      color:${isSelected?'#fff':'#fff'};
+      border-radius:8px;
+      padding:10px 4px;
+      font-size:13px;
+      font-weight:${isToday||isSelected?'900':'600'};
+      cursor:pointer;
+      position:relative;
+      font-family:'Roboto Flex',sans-serif;
+    `;
+    if (hasBooking && !isSelected) {
+      const dot = document.createElement('div');
+      dot.style.cssText = 'position:absolute;bottom:3px;left:50%;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:#4a9c2f;';
+      btn.appendChild(dot);
+    }
+    btn.onclick = () => {
       currentDate = ds;
+      buildCalGrid();
       loadCalendar(ds);
     };
-    nav.appendChild(chip);
+    grid.appendChild(btn);
   }
+}
+
+function buildDayNav() {
+  buildCalGrid();
 }
 
 async function loadCalendar(date) {
@@ -358,7 +431,7 @@ function selectType(type) {
 }
 
 async function addBooking() {
-  const date = document.getElementById('addDate').value;
+  const date = getDateValue('addDate');
   const hour = parseInt(document.getElementById('addHour').value);
   const duration = parseInt(document.getElementById('addDuration').value);
   const name = document.getElementById('addName').value.trim();
@@ -419,7 +492,7 @@ async function addBooking() {
 }
 
 async function renderBlockPanel() {
-  const date = document.getElementById('blockDate').value;
+  const date = getDateValue('blockDate');
   if (!date) return;
   const dow = new Date(date+'T12:00:00').getDay();
   const hc = OPENING_HOURS[dow];
