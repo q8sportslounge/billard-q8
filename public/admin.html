@@ -434,6 +434,7 @@ async function addBooking() {
   const date = getDateValue('addDate');
   const hour = parseInt(document.getElementById('addHour').value);
   const duration = parseInt(document.getElementById('addDuration').value);
+  console.log('addBooking:', date, hour, duration);
   const name = document.getElementById('addName').value.trim();
   const phone = document.getElementById('addPhone').value.trim();
   const note = document.getElementById('addNote').value.trim();
