@@ -292,8 +292,8 @@ let currentDate = todayStr();
 function initApp() {
   buildDayNav();
   loadCalendar(currentDate);
-  getDateValue('addDate') = todayStr();
-  getDateValue('blockDate') = todayStr();
+  document.getElementById('addDate').value = todayStr();
+  document.getElementById('blockDate').value = todayStr();
   buildHourSelect();
 }
 
