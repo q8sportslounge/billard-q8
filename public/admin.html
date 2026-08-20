@@ -221,6 +221,7 @@ function showToast(msg, red=false) {
 
 function doLogin() {
   if (document.getElementById('pwInput').value === ADMIN_PW) {
+    localStorage.setItem('q8admin', '1');
     document.getElementById('login').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     initApp();
@@ -230,10 +231,22 @@ function doLogin() {
 }
 
 function doLogout() {
+  localStorage.removeItem('q8admin');
   document.getElementById('app').style.display = 'none';
   document.getElementById('login').style.display = 'flex';
   document.getElementById('pwInput').value = '';
 }
+
+// Auto-login check
+if (localStorage.getItem('q8admin') === '1') {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    initApp();
+  });
+}
+
+
 
 function showTab(tab) {
   ['calendar','add','block'].forEach(t => {
@@ -275,8 +288,23 @@ function buildDayNav() {
 async function loadCalendar(date) {
   const list = document.getElementById('bookingList');
   list.innerHTML = '<div class="loading">Lädt...</div>';
-  const data = await sb('GET', `bookings?date=eq.${date}&order=hour.asc&select=*`);
-  if (!Array.isArray(data) || data.length===0) {
+  let data = [];
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?date=eq.${date}&order=hour.asc&select=*`, {
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json"
+      }
+    });
+    const text = await res.text();
+    data = text ? JSON.parse(text) : [];
+    if (!Array.isArray(data)) data = [];
+  } catch(e) {
+    list.innerHTML = '<div class="empty"><p style="color:#ff4444">Verbindungsfehler. Bitte neu laden.</p></div>';
+    return;
+  }
+  if (data.length===0) {
     list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Keine Buchungen für diesen Tag.</p></div>';
     return;
   }
