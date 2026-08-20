@@ -3,7 +3,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") return res.status(200).end();
 
@@ -27,26 +27,28 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
-      const body = req.body;
-      console.log("POST body:", JSON.stringify(body));
       const r = await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body)
+        method: "POST", headers, body: JSON.stringify(req.body)
       });
       const text = await r.text();
-      console.log("Supabase response:", r.status, text);
+      return res.status(r.status).send(text);
+    }
+
+    if (req.method === "PATCH") {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, {
+        method: "PATCH", headers, body: JSON.stringify(req.body)
+      });
+      const text = await r.text();
       return res.status(r.status).send(text);
     }
 
     if (req.method === "DELETE") {
-      const r = await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, {
+      await fetch(`${SUPABASE_URL}/rest/v1/bookings?id=eq.${id}`, {
         method: "DELETE", headers
       });
       return res.status(200).json({ ok: true });
     }
   } catch (e) {
-    console.error("API error:", e);
     return res.status(500).json({ error: e.message });
   }
 }
