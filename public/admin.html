@@ -141,8 +141,15 @@
     <div id="tisch-options" style="display:none">
       <div class="form-row">
         <div class="form-group"><label class="form-label">Personen</label><select class="form-select" id="addPersonsTisch"><option>1</option><option selected>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></div>
-        <div class="form-group"><label class="form-label">Anlass</label><input class="form-input" type="text" id="addAnlass" placeholder="z.B. Geburtstag" /></div>
+        <div class="form-group"><label class="form-label">Tischnummer</label><select class="form-select" id="addTischNr">
+          <option value="">– frei –</option>
+          <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+          <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+          <option>11</option><option>12</option><option>13</option><option>14</option><option>15</option>
+          <option>16</option><option>17</option><option>18</option><option>19</option><option>20</option>
+        </select></div>
       </div>
+      <div class="form-group"><label class="form-label">Anlass</label><input class="form-input" type="text" id="addAnlass" placeholder="z.B. Geburtstag (optional)" /></div>
     </div>
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" type="text" id="addName" placeholder="Kundenname" /></div>
     <div class="form-group"><label class="form-label">Telefon *</label><input class="form-input" type="tel" id="addPhone" placeholder="+49..." /></div>
@@ -185,6 +192,23 @@ async function sb(method, path, body=null) {
     const text = await res.text();
     return text ? JSON.parse(text) : [];
   } catch(e) { console.error(e); return []; }
+}
+
+
+function getBadgeLabel(art) {
+  if (!art) return '🎱 Billard';
+  if (art === 'tag') return '⚡ Billard Tag';
+  if (art === 'dart') return '🎯 Dart';
+  if (art === 'tisch' || art.startsWith('tisch-')) return '🍽️ Tisch';
+  return '🎱 Billard';
+}
+function getBadgeClass(art) {
+  return '';
+}
+function getResourceLabel(art, table_id) {
+  if (art === 'dart') return `Scheibe ${table_id}`;
+  if (art === 'tisch' || (art && art.startsWith('tisch-'))) return `Tisch ${table_id}`;
+  return `Billardtisch ${table_id}`;
 }
 
 function showToast(msg, red=false) {
@@ -267,9 +291,9 @@ async function loadCalendar(date) {
     <div class="booking-card ${b.blocked?'blocked':''}">
       <div class="booking-time">${fmtHour(b.hour)}</div>
       <div class="booking-info">
-        <div class="booking-badge ${b.blocked?'blocked':''}">${b.blocked?'GESPERRT':(b.buchungsart==='tag'?'⚡ Billard Tag':'🎱 Billard')}</div>
+        <div class="booking-badge ${b.blocked?'blocked':getBadgeClass(b.buchungsart)}">${b.blocked?'GESPERRT':getBadgeLabel(b.buchungsart)}</div>
         <div class="booking-name">${b.blocked?'Gesperrt':b.name||'—'}</div>
-        <div class="booking-meta">${b.blocked?'':(`${b.persons||1} Pers. · ${b.price||'?'}€ · Tisch ${b.table_id||'?'}<br>${b.phone||''} ${b.email?'· '+b.email:''}`)}</div>
+        <div class="booking-meta">${b.blocked?'':`${b.persons||1} Pers.${b.price?` · ${b.price}€`:''}${b.table_id?' · '+getResourceLabel(b.buchungsart,b.table_id):''}<br>${b.phone||''} ${b.email?'· '+b.email:''}`}</div>
       </div>
       <button class="btn-delete" onclick="deleteBooking(${b.id},'${date}')">Löschen</button>
     </div>
@@ -347,9 +371,10 @@ async function addBooking() {
   } else if (currentType==='tisch') {
     persons = parseInt(document.getElementById('addPersonsTisch').value);
     const anlass = document.getElementById('addAnlass').value.trim();
+    const tischNr = document.getElementById('addTischNr').value;
     buchungsart = anlass ? `tisch-${anlass}` : 'tisch';
     price = 0;
-    table_id = 1;
+    table_id = tischNr ? parseInt(tischNr) : 1;
   }
 
   for (let h=0; h<duration; h++) {
