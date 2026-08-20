@@ -8,7 +8,7 @@ export default async function handler(req, res) {
 
   if (req.method === "OPTIONS") return res.status(200).end();
 
-  const { date, id } = req.query;
+  const { date, month, id } = req.query;
   const headers = {
     "apikey": SUPABASE_KEY,
     "Authorization": `Bearer ${SUPABASE_KEY}`,
@@ -18,9 +18,14 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      const url = date
-        ? `${SUPABASE_URL}/rest/v1/bookings?date=eq.${date}&order=hour.asc&select=*`
-        : `${SUPABASE_URL}/rest/v1/bookings?select=*&limit=100`;
+      let url;
+      if (date) {
+        url = `${SUPABASE_URL}/rest/v1/bookings?date=eq.${date}&order=hour.asc&select=*`;
+      } else if (month) {
+        url = `${SUPABASE_URL}/rest/v1/bookings?date=like.${month}*&select=date,hour,name,buchungsart,blocked&order=date.asc`;
+      } else {
+        url = `${SUPABASE_URL}/rest/v1/bookings?select=*&order=date.asc&limit=200`;
+      }
       const r = await fetch(url, { headers });
       const data = await r.json();
       return res.status(200).json(data);
