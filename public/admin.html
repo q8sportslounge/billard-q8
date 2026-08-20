@@ -180,6 +180,25 @@
   </div>
 </div>
 
+<!-- EDIT MODAL -->
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:1000;padding:20px;overflow-y:auto;">
+  <div style="background:#111;border:1px solid #1e1e1e;border-radius:16px;padding:24px;max-width:500px;margin:40px auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <h2 style="font-size:18px;font-weight:900;">Buchung bearbeiten</h2>
+      <button onclick="closeEditModal()" style="background:transparent;border:none;color:#555;font-size:24px;cursor:pointer;">✕</button>
+    </div>
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" type="text" id="editName" /></div>
+    <div class="form-group"><label class="form-label">Telefon</label><input class="form-input" type="tel" id="editPhone" /></div>
+    <div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" type="email" id="editEmail" /></div>
+    <div class="form-group"><label class="form-label">Personen</label><select class="form-select" id="editPersons"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
+    <div class="form-group"><label class="form-label">Anmerkung</label><input class="form-input" type="text" id="editNote" /></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+      <button onclick="saveEdit()" style="background:#4a9c2f;color:#fff;border:none;border-radius:10px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;">Speichern ✓</button>
+      <button onclick="deleteBooking(currentEditId, currentEditDate)" style="background:transparent;border:2px solid #ff4444;color:#ff4444;border-radius:10px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;">Löschen</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // API via Vercel /api/bookings
 const ADMIN_PW = "q8admin2024";
@@ -240,6 +259,50 @@ function getResourceLabel(art, table_id) {
   if (art === 'dart') return `Scheibe ${table_id}`;
   if (art === 'tisch' || (art && art.startsWith('tisch-'))) return `Tisch ${table_id}`;
   return `Billardtisch ${table_id}`;
+}
+
+let currentEditId = null;
+let currentEditDate = null;
+let allBookings = [];
+
+async function openEditModal(id, date) {
+  currentEditId = id;
+  currentEditDate = date;
+  const data = await fetch(`/api/bookings?date=${date}`).then(r=>r.json());
+  allBookings = Array.isArray(data) ? data : [];
+  const b = allBookings.find(x=>x.id===id);
+  if (!b) return;
+  document.getElementById('editName').value = b.name||'';
+  document.getElementById('editPhone').value = b.phone||'';
+  document.getElementById('editEmail').value = b.email||'';
+  document.getElementById('editNote').value = b.note||'';
+  document.getElementById('editPersons').value = b.persons||2;
+  document.getElementById('editModal').style.display = 'block';
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').style.display = 'none';
+  currentEditId = null;
+}
+
+async function saveEdit() {
+  const btn = document.querySelector('#editModal button');
+  btn.textContent = '...';
+  const body = {
+    name: document.getElementById('editName').value,
+    phone: document.getElementById('editPhone').value,
+    email: document.getElementById('editEmail').value,
+    note: document.getElementById('editNote').value,
+    persons: parseInt(document.getElementById('editPersons').value)
+  };
+  await fetch(`/api/bookings?id=${currentEditId}`, {
+    method: 'PATCH',
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(body)
+  });
+  closeEditModal();
+  showToast('✅ Gespeichert!');
+  loadCalendar(currentEditDate);
 }
 
 function showToast(msg, red=false) {
@@ -392,14 +455,14 @@ async function loadCalendar(date) {
     seen.add(key); return true;
   });
   list.innerHTML = unique.map(b => `
-    <div class="booking-card ${b.blocked?'blocked':''}">
+    <div class="booking-card ${b.blocked?'blocked':''}" onclick="openEditModal(${b.id},'${date}')" style="cursor:pointer;">
       <div class="booking-time">${fmtHour(b.hour)}</div>
       <div class="booking-info">
         <div class="booking-badge ${b.blocked?'blocked':getBadgeClass(b.buchungsart)}">${b.blocked?'GESPERRT':getBadgeLabel(b.buchungsart)}</div>
         <div class="booking-name">${b.blocked?'Gesperrt':b.name||'—'}</div>
         <div class="booking-meta">${b.blocked?'':`${b.persons||1} Pers.${b.price?` · ${b.price}€`:''}${b.table_id?' · '+getResourceLabel(b.buchungsart,b.table_id):''}<br>${b.phone||''} ${b.email?'· '+b.email:''}`}</div>
       </div>
-      <button class="btn-delete" onclick="deleteBooking(${b.id},'${date}')">Löschen</button>
+      <div style="color:#555;font-size:18px;padding:0 4px;">›</div>
     </div>
   `).join('');
 }
@@ -407,6 +470,7 @@ async function loadCalendar(date) {
 async function deleteBooking(id, date) {
   if (!confirm('Buchung wirklich löschen?')) return;
   await sb('DELETE', `bookings?id=eq.${id}`);
+  closeEditModal();
   showToast('Gelöscht ✓');
   loadCalendar(date||currentDate);
 }
@@ -431,10 +495,12 @@ function selectType(type) {
 }
 
 async function addBooking() {
+  const btn = document.querySelector('#panel-add .btn-add');
+  btn.textContent = 'Wird gespeichert...';
+  btn.disabled = true;
   const date = getDateValue('addDate');
   const hour = parseInt(document.getElementById('addHour').value);
   const duration = parseInt(document.getElementById('addDuration').value);
-  console.log('addBooking:', date, hour, duration);
   const name = document.getElementById('addName').value.trim();
   const phone = document.getElementById('addPhone').value.trim();
   const note = document.getElementById('addNote').value.trim();
@@ -489,6 +555,8 @@ async function addBooking() {
   document.getElementById('addName').value='';
   document.getElementById('addPhone').value='';
   document.getElementById('addNote').value='';
+  btn.textContent = 'Reservierung speichern ✓';
+  btn.disabled = false;
   if (date===currentDate) loadCalendar(currentDate);
 }
 
