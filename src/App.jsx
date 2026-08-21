@@ -110,7 +110,13 @@ async function getBookedTablesDB(date, hour, duration) {
   const bookings = await loadBookingsForDate(date);
   const booked = new Set();
   for (let h = 0; h < duration; h++) {
-    bookings.filter(b => b.hour === hour + h).forEach(b => booked.add(b.table_id));
+    const hourBookings = bookings.filter(b => b.hour === hour + h);
+    // If any booking is blocked, mark ALL tables as booked
+    if (hourBookings.some(b => b.blocked)) {
+      TABLES.forEach(t => booked.add(t.id));
+    } else {
+      hourBookings.forEach(b => booked.add(b.table_id));
+    }
   }
   return booked;
 }
