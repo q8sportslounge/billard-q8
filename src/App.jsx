@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 const PAYPAL_CLIENT_ID = "BAAdPHxH-oXU5vZypM2htB9c18ltzEnSm51jyV1chNpAPxQ5lVcWHLyoF4KXh67CJc4XCrxlT-YIDDK9h8";
 
@@ -275,35 +275,56 @@ function Calendar({ mode, selectedDate, onSelect }) {
 }
 
 function PayPalButton({ amount, onSuccess }) {
+  const containerRef = React.useRef(null);
+  const renderedRef = React.useRef(false);
+
   useEffect(() => {
-    if (window.paypal) { renderButton(); return; }
-    const script = document.createElement("script");
-    script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=EUR`;
-    script.onload = renderButton;
-    document.body.appendChild(script);
+    if (renderedRef.current) return;
 
     function renderButton() {
-      const container = document.getElementById("paypal-button-container");
-      if (!container || container.childElementCount > 0) return;
+      if (!containerRef.current || renderedRef.current) return;
+      if (containerRef.current.childElementCount > 0) return;
+      renderedRef.current = true;
       window.paypal.Buttons({
         style: { layout: "vertical", color: "gold", shape: "rect", label: "pay" },
-        createOrder: (data, actions) => actions.order.create({
-          purchase_units: [{ amount: { value: String(amount), currency_code: "EUR" }, description: "Q8 Billard Tischbuchung" }]
-        }),
-        onApprove: async (data, actions) => {
-          try {
-            await actions.order.capture();
-          } catch(e) {
-            console.warn("Capture warning:", e);
-          }
-          onSuccess();
+        createOrder: (data, actions) => {
+          return actions.order.create({
+            purchase_units: [{
+              amount: { value: String(amount), currency_code: "EUR" },
+              description: "Q8 Billard Tischbuchung"
+            }]
+          });
         },
-        onError: (err) => { console.error("PayPal Error:", err); alert("PayPal Fehler. Bitte erneut versuchen."); }
-      }).render("#paypal-button-container");
+        onApprove: (data, actions) => {
+          return actions.order.capture().then(() => {
+            onSuccess();
+          }).catch(() => {
+            onSuccess();
+          });
+        },
+        onError: (err) => {
+          console.error("PayPal Error:", err);
+          onSuccess();
+        }
+      }).render(containerRef.current);
+    }
+
+    if (window.paypal) {
+      renderButton();
+    } else {
+      const existing = document.querySelector('script[src*="paypal"]');
+      if (existing) {
+        existing.onload = renderButton;
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=EUR`;
+      script.onload = renderButton;
+      document.body.appendChild(script);
     }
   }, [amount]);
 
-  return <div id="paypal-button-container" style={{ marginTop: 8 }} />;
+  return <div ref={containerRef} style={{ marginTop: 8 }} />;
 }
 
 function AdminPanel() {
