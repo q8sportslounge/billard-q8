@@ -38,7 +38,12 @@ export default async function handler(req, res) {
           purchase_units: [{
             amount: { currency_code: "EUR", value: String(parseFloat(amount).toFixed(2)) },
             description: "Q8 Billard Tischbuchung"
-          }]
+          }],
+          application_context: {
+            return_url: "https://billard.q8-sportslounge.de?buchung=bestaetigt",
+            cancel_url: "https://billard.q8-sportslounge.de?buchung=abgebrochen",
+            user_action: "PAY_NOW"
+          }
         })
       });
       const order = await r.json();
