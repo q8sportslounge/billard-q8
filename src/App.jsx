@@ -638,7 +638,12 @@ Datenschutz: Deine Daten (Name, Telefon, E-Mail) werden ausschließlich zur Abwi
       slots.forEach(({ hour }) => {
         const booked = new Set();
         for (let h = 0; h < selectedDuration.value; h++) {
-          bookings.filter(b => b.hour === hour + h).forEach(b => booked.add(b.table_id));
+          const hourBookings = bookings.filter(b => b.hour === hour + h);
+          if (hourBookings.some(b => b.blocked)) {
+            TABLES.forEach(t => booked.add(t.id));
+          } else {
+            hourBookings.forEach(b => booked.add(b.table_id));
+          }
         }
         avail[`${selectedDate}_${hour}_${selectedDuration.value}`] = TABLES.some(t => !booked.has(t.id));
       });
