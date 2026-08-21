@@ -291,7 +291,7 @@ function PayPalButton({ amount, onSuccess }) {
           purchase_units: [{ amount: { value: String(amount), currency_code: "EUR" }, description: "Q8 Billard Tischbuchung" }]
         }),
         onApprove: (data, actions) => actions.order.capture().then(() => onSuccess()),
-        onError: (err) => alert("PayPal Fehler. Bitte erneut versuchen.")
+        onError: (err) => { console.error("PayPal Error:", err); alert("PayPal Fehler: " + JSON.stringify(err)); }
       }).render("#paypal-button-container");
     }
   }, [amount]);
@@ -531,6 +531,24 @@ Datenschutz: Deine Daten (Name, Telefon, E-Mail) werden ausschließlich zur Abwi
     setSubmitted(true);
   };
 
+  const [dbAvailability, setDbAvailability] = useState({});
+
+  useEffect(() => {
+    if (!selectedDate || !selectedDuration) return;
+    loadBookingsForDate(selectedDate).then(bookings => {
+      const slots = getSlotsForDate(selectedDate, selectedDuration.value);
+      const avail = {};
+      slots.forEach(({ hour }) => {
+        const booked = new Set();
+        for (let h = 0; h < selectedDuration.value; h++) {
+          bookings.filter(b => b.hour === hour + h).forEach(b => booked.add(b.table_id));
+        }
+        avail[`${selectedDate}_${hour}_${selectedDuration.value}`] = TABLES.some(t => !booked.has(t.id));
+      });
+      setDbAvailability(avail);
+    });
+  }, [selectedDate, selectedDuration]);
+
   const selectedDateObj = selectedDate ? new Date(selectedDate+"T12:00:00") : null;
   const endHour = (selectedTime !== null && selectedDuration)
     ? (() => { const h = selectedTime + selectedDuration.value; return (h >= 24 ? String(h-24).padStart(2,"0") : String(h).padStart(2,"0")) + ":00"; })()
@@ -645,7 +663,7 @@ Datenschutz: Deine Daten (Name, Telefon, E-Mail) werden ausschließlich zur Abwi
                       const slotDay = hour >= 24 ? new Date(slotDate.getTime() + 86400000) : slotDate;
                       slotDay.setHours(slotActualHour, 0, 0, 0);
                       const tooSoon = (slotDay - now) < 3 * 60 * 60 * 1000;
-                      const available = !tooSoon && (selectedDuration ? isSlotAvailable(selectedDate, hour, selectedDuration.value) : true);
+                      const available = !tooSoon && (selectedDuration ? (dbAvailability[`${selectedDate}_${hour}_${selectedDuration.value}`] !== false) : true);
                       const active = selectedTime === hour;
                       return (
                         <button key={hour} onClick={() => available && setSelectedTime(hour)}
