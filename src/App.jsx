@@ -275,52 +275,62 @@ function Calendar({ mode, selectedDate, onSelect }) {
 }
 
 function PayPalButton({ amount, onSuccess }) {
-  const containerRef = React.useRef(null);
-  const renderedRef = React.useRef(false);
+  const [loading, setLoading] = React.useState(false);
+  const [approvalUrl, setApprovalUrl] = React.useState(null);
+  const [error, setError] = React.useState(null);
 
-  useEffect(() => {
-    if (renderedRef.current) return;
-
-    function renderButton() {
-      if (!containerRef.current || renderedRef.current) return;
-      renderedRef.current = true;
-      window.paypal.Buttons({
-        style: { layout: "vertical", color: "gold", shape: "rect", label: "pay" },
-        createOrder: async () => {
-          const res = await fetch("/api/paypal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "create", amount })
-          });
-          const data = await res.json();
-          return data.id;
-        },
-        onApprove: async (data) => {
-          await fetch("/api/paypal", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "capture", orderID: data.orderID })
-          });
-          onSuccess();
-        },
-        onError: (err) => {
-          console.error("PayPal Error:", err);
-          alert("PayPal Fehler. Bitte erneut versuchen.");
+  const createOrder = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/paypal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", amount })
+      });
+      const data = await res.json();
+      if (data.id) {
+        // Find approval URL
+        const approveLink = data.links?.find(l => l.rel === "payer-action" || l.rel === "approve");
+        if (approveLink) {
+          setApprovalUrl(approveLink.href);
+        } else {
+          setError("Fehler beim Erstellen der Zahlung.");
         }
-      }).render(containerRef.current);
+      } else {
+        setError("Fehler: " + (data.error || "Unbekannt"));
+      }
+    } catch(e) {
+      setError("Verbindungsfehler. Bitte erneut versuchen.");
     }
+    setLoading(false);
+  };
 
-    if (window.paypal) {
-      renderButton();
-    } else {
-      const script = document.createElement("script");
-      script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=EUR`;
-      script.onload = renderButton;
-      document.body.appendChild(script);
-    }
-  }, [amount]);
+  if (approvalUrl) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+        <a href={approvalUrl} target="_blank" rel="noopener noreferrer"
+          style={{ display: "block", width: "100%", background: "#0070ba", color: "#fff", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
+          onClick={() => setTimeout(() => onSuccess(), 10000)}>
+          Jetzt bei PayPal bezahlen →
+        </a>
+        <button onClick={onSuccess}
+          style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 10, padding: "14px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
+          Zahlung abgeschlossen ✓
+        </button>
+      </div>
+    );
+  }
 
-  return <div ref={containerRef} style={{ marginTop: 8 }} />;
+  return (
+    <div style={{ marginTop: 8 }}>
+      {error && <div style={{ color: "#ff4444", fontSize: 13, fontFamily: "sans-serif", marginBottom: 8, textAlign: "center" }}>{error}</div>}
+      <button onClick={createOrder} disabled={loading}
+        style={{ width: "100%", background: loading ? "#333" : "#0070ba", color: "#fff", border: "none", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: loading ? "wait" : "pointer", fontFamily: "'Roboto Flex', sans-serif", letterSpacing: "0.05em" }}>
+        {loading ? "Wird vorbereitet..." : `Mit PayPal bezahlen (${amount} €)`}
+      </button>
+    </div>
+  );
 }
 
 function AdminPanel() {
