@@ -307,7 +307,6 @@ function PayPalButton({ amount, onSuccess, bookingData }) {
     <div style={{ marginTop: 8 }}>
       {approvalUrl ? (
         <a href={approvalUrl}
-          onClick={() => setPaypalOpened(true)}
           style={{ display: "block", width: "100%", background: "#111", color: "#fff", border: "2px solid #1e1e1e", borderRadius: 8, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}>
           Jetzt mit PayPal bezahlen
         </a>
@@ -316,6 +315,9 @@ function PayPalButton({ amount, onSuccess, bookingData }) {
           Wird vorbereitet...
         </button>
       )}
+      <div style={{ fontSize: 12, color: "#555", fontFamily: "sans-serif", textAlign: "center", marginTop: 8 }}>
+        Du wirst zu PayPal weitergeleitet. Nach der Zahlung erhältst du eine Bestätigungsmail.
+      </div>
     </div>
   );
 }
@@ -423,7 +425,54 @@ function AdminPanel() {
 }
 
 export default function App() {
-  if (window.location.hash === "#admin") return <AdminPanel />;
+  // Check if customer returned from PayPal
+  const urlParams = new URLSearchParams(window.location.search);
+  const buchungStatus = urlParams.get('buchung');
+
+  if (buchungStatus === 'bestaetigt') {
+    return (
+      <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700;800&family=Phudu:wght@400;500;600;700;800;900&display=swap');`}</style>
+      <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Roboto Flex', sans-serif" }}>
+        <div style={{ textAlign: "center", maxWidth: 400 }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#4a9c2f", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 36 }}>✓</div>
+          <h2 style={{ fontSize: 28, fontWeight: 900, color: "#fff", marginBottom: 12, fontFamily: "'Phudu', sans-serif" }}>Buchung bestätigt!</h2>
+          <p style={{ color: "#4a9c2f", fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Zahlung erfolgreich abgeschlossen ✓</p>
+          <p style={{ color: "#888", fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
+            Deine Buchung ist eingegangen und bezahlt.<br />
+            Du erhältst in Kürze eine Bestätigungsmail.<br />
+            Das Q8 Team freut sich auf dich! 🎱
+          </p>
+          <button onClick={() => window.location.href = 'https://billard.q8-sportslounge.de'}
+            style={{ background: "#111", color: "#fff", border: "2px solid #1e1e1e", borderRadius: 8, padding: "14px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
+            Weitere Buchung
+          </button>
+        </div>
+      </div>
+      </>
+    );
+  }
+
+  if (buchungStatus === 'abgebrochen') {
+    return (
+      <>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700;800&family=Phudu:wght@400;500;600;700;800;900&display=swap');`}</style>
+      <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Roboto Flex', sans-serif" }}>
+        <div style={{ textAlign: "center", maxWidth: 400 }}>
+          <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#ff4444", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 36 }}>✕</div>
+          <h2 style={{ fontSize: 28, fontWeight: 900, color: "#fff", marginBottom: 12, fontFamily: "'Phudu', sans-serif" }}>Zahlung abgebrochen</h2>
+          <p style={{ color: "#888", fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
+            Die Zahlung wurde abgebrochen. Deine Buchung wurde nicht gespeichert.
+          </p>
+          <button onClick={() => window.location.href = 'https://billard.q8-sportslounge.de'}
+            style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 8, padding: "14px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
+            Erneut versuchen
+          </button>
+        </div>
+      </div>
+      </>
+    );
+  }
   const [step, setStep] = useState(1);
   const [mode, setMode] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
