@@ -3,20 +3,6 @@ const PAYPAL_SECRET = "EP4f4Fw6JIU1NXBS2c1WlilJk6RHtYvvK8r4HXLoN_EY-Bu3p5uHieXDg
 const SUPABASE_URL = "https://szfudvgyxinesgnlvzmt.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6ZnVkdmd5eGluZXNnbmx2em10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNDU0NDAsImV4cCI6MjEwMjgyMTQ0MH0.2aXwlcd_UKs_T1JlSHvr8T4vMIOY1SYByLqWr3ID6Hg";
 const PAYPAL_BASE = "https://api-m.paypal.com";
-const SMTP_HOST = "smtp.udag.de";
-const SMTP_PORT = 587;
-const SMTP_USER = "info@q8-sportslounge.de";
-const SMTP_PASS = "emrahq8!";
-
-import nodemailer from "nodemailer";
-
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: false,
-  auth: { user: SMTP_USER, pass: SMTP_PASS }
-});
-
 async function getAccessToken() {
   const res = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
     method: "POST",
@@ -57,21 +43,33 @@ async function saveBookingAndSendMails(booking) {
   const mailText = `Hey ${booking.name},\n\ndeine Buchung ist bestätigt und bezahlt!\n\nDatum: ${booking.date}\nUhrzeit: ${hourStr} – ${endStr} Uhr\nSpielzeit: ${booking.duration} Stunde(n)\nPersonen: ${booking.persons}\nPreis: ${booking.price} € – bezahlt via PayPal ✓\n\nBitte pünktlich erscheinen – deine Zeit beginnt zum reservierten Startzeitpunkt.\n\nBis bald – auf ein gutes Spiel!\nDein Q8 Sports Lounge Team\n\n--\nDatenschutz: Deine Daten werden ausschließlich zur Abwicklung deiner Buchung verwendet. Weitere Infos: q8-sportslounge.de`;
 
   // Mail an Q8
-  await transporter.sendMail({
-    from: `"Q8 Sports Lounge" <${SMTP_USER}>`,
-    to: SMTP_USER,
-    subject: `🎱 Neue Buchung – ${booking.name} – ${booking.date}`,
-    text: `Neue Buchung eingegangen!\n\nName: ${booking.name}\nTelefon: ${booking.phone}\nEmail: ${booking.email}\nDatum: ${booking.date}\nUhrzeit: ${hourStr} – ${endStr} Uhr\nSpielzeit: ${booking.duration} Stunde(n)\nPersonen: ${booking.persons}\nPreis: ${booking.price} €\nZahlung: PayPal ✓\nAnmerkung: ${booking.note || '–'}`
+  await fetch("https://formspree.io/f/mwleylzn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      _subject: `🎱 Neue Buchung – ${booking.name} – ${booking.date}`,
+      Name: booking.name, Telefon: booking.phone, Email: booking.email,
+      Datum: booking.date, Uhrzeit: `${hourStr} – ${endStr} Uhr`,
+      Spielzeit: `${booking.duration} Stunde(n)`, Personen: booking.persons,
+      Preis: `${booking.price} €`, Zahlung: "PayPal ✓"
+    })
   });
 
-  // Mail an Kunden
+  // Mail an Kunden via Resend
   if (booking.email) {
-    await transporter.sendMail({
-      from: `"Q8 Sports Lounge" <${SMTP_USER}>`,
-      to: `${booking.name} <${booking.email}>`,
-      subject: "Deine Billard-Buchung bei Q8 Sports Lounge ✅",
-      text: mailText
-    });
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Authorization": "Bearer re_SA9mV9Fz_9HmamGHEGJzQbgK3MeSYUd7e",
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: "Q8 Sports Lounge <info@q8-sportslounge.de>",
+        to: [booking.email],
+        subject: "Deine Billard-Buchung bei Q8 Sports Lounge ✅",
+        text: mailText
+      })
+    }).then(r => r.json()).then(d => console.log("Resend result:", JSON.stringify(d)));
   }
 
   console.log("Booking saved and mails sent for:", booking.name);
