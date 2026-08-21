@@ -3,6 +3,19 @@ const PAYPAL_SECRET = "EP4f4Fw6JIU1NXBS2c1WlilJk6RHtYvvK8r4HXLoN_EY-Bu3p5uHieXDg
 const SUPABASE_URL = "https://szfudvgyxinesgnlvzmt.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6ZnVkdmd5eGluZXNnbmx2em10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNDU0NDAsImV4cCI6MjEwMjgyMTQ0MH0.2aXwlcd_UKs_T1JlSHvr8T4vMIOY1SYByLqWr3ID6Hg";
 const PAYPAL_BASE = "https://api-m.paypal.com";
+const SMTP_HOST = "smtp.udag.de";
+const SMTP_PORT = 587;
+const SMTP_USER = "info@q8-sportslounge.de";
+const SMTP_PASS = "emrahq8!";
+
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  host: SMTP_HOST,
+  port: SMTP_PORT,
+  secure: false,
+  auth: { user: SMTP_USER, pass: SMTP_PASS }
+});
 
 async function getAccessToken() {
   const res = await fetch(`${PAYPAL_BASE}/v1/oauth2/token`, {
@@ -19,7 +32,6 @@ async function getAccessToken() {
 }
 
 async function saveBookingAndSendMails(booking) {
-  // Save to bookings table
   for (let h = 0; h < booking.duration; h++) {
     await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
       method: "POST",
@@ -30,57 +42,35 @@ async function saveBookingAndSendMails(booking) {
         "Prefer": "return=representation"
       },
       body: JSON.stringify({
-        date: booking.date,
-        hour: booking.hour + h,
-        duration: booking.duration,
-        table_id: booking.table_id || 1,
-        name: booking.name,
-        phone: booking.phone,
-        email: booking.email,
-        persons: booking.persons,
-        price: booking.price,
-        buchungsart: booking.buchungsart,
-        blocked: false,
-        note: booking.note || ""
+        date: booking.date, hour: booking.hour + h, duration: booking.duration,
+        table_id: booking.table_id || 1, name: booking.name, phone: booking.phone,
+        email: booking.email, persons: booking.persons, price: booking.price,
+        buchungsart: booking.buchungsart, blocked: false, note: booking.note || ""
       })
     });
   }
 
-  const dateStr = booking.date;
   const hourStr = `${String(booking.hour).padStart(2,'0')}:00`;
   const endHour = booking.hour + booking.duration;
   const endStr = `${String(endHour >= 24 ? endHour-24 : endHour).padStart(2,'0')}:00`;
 
+  const mailText = `Hey ${booking.name},\n\ndeine Buchung ist bestätigt und bezahlt!\n\nDatum: ${booking.date}\nUhrzeit: ${hourStr} – ${endStr} Uhr\nSpielzeit: ${booking.duration} Stunde(n)\nPersonen: ${booking.persons}\nPreis: ${booking.price} € – bezahlt via PayPal ✓\n\nBitte pünktlich erscheinen – deine Zeit beginnt zum reservierten Startzeitpunkt.\n\nBis bald – auf ein gutes Spiel!\nDein Q8 Sports Lounge Team\n\n--\nDatenschutz: Deine Daten werden ausschließlich zur Abwicklung deiner Buchung verwendet. Weitere Infos: q8-sportslounge.de`;
+
   // Mail an Q8
-  await fetch("https://formspree.io/f/mwleylzn", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      _subject: `🎱 Neue Buchung – ${booking.name} – ${dateStr}`,
-      Name: booking.name,
-      Telefon: booking.phone,
-      Email: booking.email,
-      Datum: dateStr,
-      Uhrzeit: `${hourStr} – ${endStr} Uhr`,
-      Spielzeit: `${booking.duration} Stunde(n)`,
-      Personen: booking.persons,
-      Buchungsart: booking.buchungsart,
-      Preis: `${booking.price} €`,
-      Zahlung: "PayPal ✓"
-    })
+  await transporter.sendMail({
+    from: `"Q8 Sports Lounge" <${SMTP_USER}>`,
+    to: SMTP_USER,
+    subject: `🎱 Neue Buchung – ${booking.name} – ${booking.date}`,
+    text: `Neue Buchung eingegangen!\n\nName: ${booking.name}\nTelefon: ${booking.phone}\nEmail: ${booking.email}\nDatum: ${booking.date}\nUhrzeit: ${hourStr} – ${endStr} Uhr\nSpielzeit: ${booking.duration} Stunde(n)\nPersonen: ${booking.persons}\nPreis: ${booking.price} €\nZahlung: PayPal ✓\nAnmerkung: ${booking.note || '–'}`
   });
 
-  // Bestätigungsmail an Kunden
+  // Mail an Kunden
   if (booking.email) {
-    await fetch("https://formspree.io/f/mljrzjkq", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        _replyto: booking.email,
-        email: booking.email,
-        _subject: "Deine Billard-Buchung bei Q8 Sports Lounge",
-        message: `Hey ${booking.name},\n\ndeine Buchung ist bestätigt und bezahlt!\n\nDatum: ${dateStr}\nUhrzeit: ${hourStr} – ${endStr} Uhr\nSpielzeit: ${booking.duration} Stunde(n)\nPersonen: ${booking.persons}\nPreis: ${booking.price} € – bezahlt via PayPal ✓\n\nBitte pünktlich erscheinen.\n\nBis bald – auf ein gutes Spiel!\nDein Q8 Team\n\n--\nDatenschutz: Deine Daten werden ausschließlich zur Abwicklung deiner Buchung verwendet. Weitere Infos: q8-sportslounge.de`
-      })
+    await transporter.sendMail({
+      from: `"Q8 Sports Lounge" <${SMTP_USER}>`,
+      to: `${booking.name} <${booking.email}>`,
+      subject: "Deine Billard-Buchung bei Q8 Sports Lounge ✅",
+      text: mailText
     });
   }
 
@@ -117,19 +107,15 @@ export default async function handler(req, res) {
       });
       const order = await r.json();
 
-      // Save pending booking
       if (booking && order.id) {
         await fetch(`${SUPABASE_URL}/rest/v1/pending_bookings`, {
           method: "POST",
           headers: {
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`,
-            "Content-Type": "application/json",
-            "Prefer": "return=representation"
+            "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Content-Type": "application/json", "Prefer": "return=representation"
           },
           body: JSON.stringify({ ...booking, order_id: order.id })
         });
-        console.log("Pending booking saved for order:", order.id);
       }
 
       return res.status(200).json(order);
@@ -141,10 +127,9 @@ export default async function handler(req, res) {
         headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
       });
       const capture = await r.json();
-      console.log("Capture status:", capture.status, "order:", orderID);
+      console.log("Capture status:", capture.status);
 
       if (capture.status === "COMPLETED") {
-        // Get pending booking
         const pbRes = await fetch(`${SUPABASE_URL}/rest/v1/pending_bookings?order_id=eq.${orderID}&select=*`, {
           headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
         });
@@ -154,8 +139,6 @@ export default async function handler(req, res) {
         if (Array.isArray(pending) && pending.length > 0) {
           const booking = pending[0];
           await saveBookingAndSendMails(booking);
-
-          // Delete pending booking
           await fetch(`${SUPABASE_URL}/rest/v1/pending_bookings?id=eq.${booking.id}`, {
             method: "DELETE",
             headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
