@@ -274,7 +274,7 @@ function Calendar({ mode, selectedDate, onSelect }) {
   );
 }
 
-function PayPalButton({ amount, onSuccess }) {
+function PayPalButton({ amount, onSuccess, bookingData }) {
   const [loading, setLoading] = React.useState(false);
   const [approvalUrl, setApprovalUrl] = React.useState(null);
   const [error, setError] = React.useState(null);
@@ -286,7 +286,7 @@ function PayPalButton({ amount, onSuccess }) {
       const res = await fetch("/api/paypal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", amount })
+        body: JSON.stringify({ action: "create", amount, booking: bookingData })
       });
       const data = await res.json();
       if (data.id) {
@@ -874,6 +874,19 @@ Datenschutz: Deine Daten (Name, Telefon, E-Mail) werden ausschließlich zur Abwi
                       <PayPalButton
                         amount={selectedDuration?.price}
                         onSuccess={handleSubmit}
+                        bookingData={{
+                          date: selectedDate,
+                          hour: selectedTime,
+                          duration: selectedDuration?.value,
+                          table_id: 1,
+                          name: form.name,
+                          phone: form.phone,
+                          email: form.email,
+                          persons: persons,
+                          price: selectedDuration?.price,
+                          buchungsart: (isBillardTag || isSelectedTuesday) ? "tag" : "normal",
+                          note: form.note || ""
+                        }}
                       />
                     )}
                     {!payment && (
