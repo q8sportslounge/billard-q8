@@ -1,0 +1,105 @@
+const SUPABASE_URL = "https://szfudvgyxinesgnlvzmt.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN6ZnVkdmd5eGluZXNnbmx2em10Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODcyNDU0NDAsImV4cCI6MjEwMjgyMTQ0MH0.2aXwlcd_UKs_T1JlSHvr8T4vMIOY1SYByLqWr3ID6Hg";
+const WEBHOOK_ID = "38G248194C316312Y";
+const PAYPAL_CLIENT_ID = "BAAdPHxH-oXU5vZypM2htB9c18ltzEnSm51jyV1chNpAPxQ5lVcWHLyoF4KXh67CJc4XCrxlT-YIDDK9h8";
+const PAYPAL_SECRET = "EP4f4Fw6JIU1NXBS2c1WlilJk6RHtYvvK8r4HXLoN_EY-Bu3p5uHieXDgNbje9oDbZl-OQFDD1xNgN5u";
+
+async function getToken() {
+  const res = await fetch("https://api-m.paypal.com/v1/oauth2/token", {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${Buffer.from(`${PAYPAL_CLIENT_ID}:${PAYPAL_SECRET}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: "grant_type=client_credentials"
+  });
+  const d = await res.json();
+  return d.access_token;
+}
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") return res.status(405).end();
+
+  const event = req.body;
+  console.log("Webhook event:", event?.event_type);
+
+  if (event?.event_type !== "PAYMENT.CAPTURE.COMPLETED") {
+    return res.status(200).json({ ok: true });
+  }
+
+  // Get booking data from custom_id
+  const customId = event?.resource?.supplementary_data?.related_ids?.order_id;
+  const orderId = event?.resource?.supplementary_data?.related_ids?.order_id || event?.resource?.id;
+
+  // Get order details to find custom booking data
+  const token = await getToken();
+  const orderRes = await fetch(`https://api-m.paypal.com/v2/checkout/orders/${orderId}`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  const order = await orderRes.json();
+  console.log("Order details:", JSON.stringify(order).substring(0, 500));
+
+  // Get booking from pending_bookings table
+  const bookingRes = await fetch(`${SUPABASE_URL}/rest/v1/pending_bookings?order_id=eq.${orderId}&select=*`, {
+    headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+  });
+  const bookings = await bookingRes.json();
+  
+  if (!Array.isArray(bookings) || bookings.length === 0) {
+    console.log("No pending booking found for order:", orderId);
+    return res.status(200).json({ ok: true });
+  }
+
+  const booking = bookings[0];
+
+  // Save to bookings table
+  for (let h = 0; h < booking.duration; h++) {
+    await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation"
+      },
+      body: JSON.stringify({
+        date: booking.date, hour: booking.hour + h, duration: booking.duration,
+        table_id: booking.table_id, name: booking.name, phone: booking.phone,
+        email: booking.email, persons: booking.persons, price: booking.price,
+        buchungsart: booking.buchungsart, blocked: false, note: booking.note || ""
+      })
+    });
+  }
+
+  // Send confirmation emails via Formspree
+  await fetch("https://formspree.io/f/mwleylzn", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      _subject: `🎱 Neue Buchung – ${booking.name} – ${booking.date}`,
+      Name: booking.name, Telefon: booking.phone, Email: booking.email,
+      Datum: booking.date, Uhrzeit: `${booking.hour}:00 Uhr`,
+      Spielzeit: `${booking.duration} Stunde(n)`, Personen: booking.persons,
+      Preis: `${booking.price} €`, Zahlung: "PayPal ✓"
+    })
+  });
+
+  await fetch("https://formspree.io/f/mljrzjkq", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      _replyto: booking.email, email: booking.email,
+      _subject: "Deine Billard-Buchung bei Q8 Sports Lounge",
+      message: `Hey ${booking.name},\n\ndeine Buchung ist bestätigt und bezahlt!\n\nDatum: ${booking.date}\nUhrzeit: ${booking.hour}:00 Uhr\nSpielzeit: ${booking.duration} Stunde(n)\nPersonen: ${booking.persons}\nPreis: ${booking.price} € – bezahlt via PayPal ✓\n\nBis bald!\nDein Q8 Team\n\n--\nDatenschutz: Deine Daten werden ausschließlich zur Abwicklung deiner Buchung verwendet. Weitere Infos: q8-sportslounge.de`
+    })
+  });
+
+  // Delete pending booking
+  await fetch(`${SUPABASE_URL}/rest/v1/pending_bookings?id=eq.${booking.id}`, {
+    method: "DELETE",
+    headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+  });
+
+  console.log("Booking completed for:", booking.name);
+  return res.status(200).json({ ok: true });
+}
