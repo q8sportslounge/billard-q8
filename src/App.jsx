@@ -310,10 +310,12 @@ function PayPalButton({ amount, onSuccess }) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
         <a href={approvalUrl} target="_blank" rel="noopener noreferrer"
-          style={{ display: "block", width: "100%", background: "#0070ba", color: "#fff", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
-          onClick={() => setTimeout(() => onSuccess(), 10000)}>
+          style={{ display: "block", width: "100%", background: "#0070ba", color: "#fff", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}>
           Jetzt bei PayPal bezahlen →
         </a>
+        <div style={{ fontSize: 12, color: "#555", fontFamily: "sans-serif", textAlign: "center" }}>
+          Nach der Zahlung bei PayPal hier zurückkommen und bestätigen:
+        </div>
         <button onClick={onSuccess}
           style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 10, padding: "14px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
           Zahlung abgeschlossen ✓
