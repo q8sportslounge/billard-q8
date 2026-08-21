@@ -60,7 +60,7 @@ async function saveBookingAndSendMails(booking) {
     await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer re_SA9mV9Fz_9HmamGHEGJzQbgK3MeSYUd7e",
+        "Authorization": `Bearer ${process.env.RESEND_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
@@ -136,7 +136,12 @@ export default async function handler(req, res) {
 
         if (Array.isArray(pending) && pending.length > 0) {
           const booking = pending[0];
-          await saveBookingAndSendMails(booking);
+          try {
+            await saveBookingAndSendMails(booking);
+          } catch(mailErr) {
+            console.error("Mail error:", mailErr.message);
+            // Booking already saved, just mail failed
+          }
           await fetch(`${SUPABASE_URL}/rest/v1/pending_bookings?id=eq.${booking.id}`, {
             method: "DELETE",
             headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
