@@ -275,70 +275,47 @@ function Calendar({ mode, selectedDate, onSelect }) {
 }
 
 function PayPalButton({ amount, onSuccess, bookingData }) {
-  const [loading, setLoading] = React.useState(false);
   const [approvalUrl, setApprovalUrl] = React.useState(null);
-  const [error, setError] = React.useState(null);
+  const [paypalOpened, setPaypalOpened] = React.useState(false);
 
-  const createOrder = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/paypal", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create", amount, booking: bookingData })
-      });
-      const data = await res.json();
-      if (data.id) {
-        // Find approval URL
-        const approveLink = data.links?.find(l => l.rel === "payer-action" || l.rel === "approve");
-        if (approveLink) {
-          setApprovalUrl(approveLink.href);
-        } else {
-          setError("Fehler beim Erstellen der Zahlung.");
-        }
-      } else {
-        setError("Fehler: " + (data.error || "Unbekannt"));
-      }
-    } catch(e) {
-      setError("Verbindungsfehler. Bitte erneut versuchen.");
-    }
-    setLoading(false);
-  };
+  useEffect(() => {
+    fetch("/api/paypal", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create", amount, booking: bookingData })
+    }).then(r => r.json()).then(data => {
+      const link = data.links?.find(l => l.rel === "payer-action" || l.rel === "approve");
+      if (link) setApprovalUrl(link.href);
+    }).catch(e => console.error(e));
+  }, []);
 
-  const [clicked, setClicked] = React.useState(false);
-
-  if (approvalUrl) {
+  if (paypalOpened) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-        {!clicked ? (
-          <a href={approvalUrl}
-            style={{ display: "block", width: "100%", background: "#0070ba", color: "#fff", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
-            onClick={() => setClicked(true)}>
-            Jetzt bei PayPal bezahlen →
-          </a>
-        ) : (
-          <>
-            <div style={{ background: "#0f1a07", border: "1px solid #4a9c2f", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#4a9c2f", fontFamily: "sans-serif", textAlign: "center" }}>
-              Nach der Zahlung bei PayPal hier bestätigen:
-            </div>
-            <button onClick={onSuccess}
-              style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 10, padding: "16px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
-              Zahlung abgeschlossen ✓
-            </button>
-          </>
-        )}
+        <div style={{ background: "#0f1a07", border: "1px solid #4a9c2f", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#4a9c2f", fontFamily: "sans-serif", textAlign: "center" }}>
+          Nach der Zahlung bei PayPal hier bestätigen:
+        </div>
+        <button onClick={onSuccess}
+          style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 10, padding: "16px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
+          Zahlung abgeschlossen ✓
+        </button>
       </div>
     );
   }
 
   return (
     <div style={{ marginTop: 8 }}>
-      {error && <div style={{ color: "#ff4444", fontSize: 13, fontFamily: "sans-serif", marginBottom: 8, textAlign: "center" }}>{error}</div>}
-      <button onClick={createOrder} disabled={loading}
-        style={{ width: "100%", background: loading ? "#333" : "#0070ba", color: "#fff", border: "none", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: loading ? "wait" : "pointer", fontFamily: "'Roboto Flex', sans-serif", letterSpacing: "0.05em" }}>
-        {loading ? "Wird vorbereitet..." : `Mit PayPal bezahlen (${amount} €)`}
-      </button>
+      {approvalUrl ? (
+        <a href={approvalUrl}
+          onClick={() => setPaypalOpened(true)}
+          style={{ display: "block", width: "100%", background: "#111", color: "#fff", border: "2px solid #1e1e1e", borderRadius: 8, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}>
+          Jetzt mit PayPal bezahlen
+        </a>
+      ) : (
+        <button disabled style={{ width: "100%", background: "#1a1a1a", color: "#555", border: "2px solid #1e1e1e", borderRadius: 8, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "default", fontFamily: "'Roboto Flex', sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          Wird vorbereitet...
+        </button>
+      )}
     </div>
   );
 }
