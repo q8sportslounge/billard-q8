@@ -96,10 +96,13 @@ async function apiFetch(method, params = {}, body = null) {
   } catch(e) { return []; }
 }
 
+const bookingsCacheTime = {};
 async function loadBookingsForDate(date) {
-  if (bookingsCache[date]) return bookingsCache[date];
+  const now = Date.now();
+  if (bookingsCache[date] && (now - (bookingsCacheTime[date] || 0)) < 30000) return bookingsCache[date];
   const data = await apiFetch("GET", { date });
   bookingsCache[date] = Array.isArray(data) ? data : [];
+  bookingsCacheTime[date] = now;
   return bookingsCache[date];
 }
 
