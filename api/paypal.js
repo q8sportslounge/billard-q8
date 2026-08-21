@@ -1,5 +1,5 @@
 const PAYPAL_CLIENT_ID = "BAAdPHxH-oXU5vZypM2htB9c18ltzEnSm51jyV1chNpAPxQ5lVcWHLyoF4KXh67CJc4XCrxlT-YIDDK9h8";
-const PAYPAL_SECRET = "EMu4WgDpu71Een3uvrXOWHce6eW8Wstm7_H09JoSmitOJ7bKDZQ1oU9YfRUI2YwHVFDINdywTcHnB26";
+const PAYPAL_SECRET = "EP4f4Fw6JIU1NXBS2c1WlilJk6RHtYvvK8r4HXLoN_EY-Bu3p5uHieXDgNbje9oDbZl-OQFDD1xNgN5u";
 const PAYPAL_BASE = "https://api-m.paypal.com";
 
 async function getAccessToken() {
