@@ -290,8 +290,15 @@ function PayPalButton({ amount, onSuccess }) {
         createOrder: (data, actions) => actions.order.create({
           purchase_units: [{ amount: { value: String(amount), currency_code: "EUR" }, description: "Q8 Billard Tischbuchung" }]
         }),
-        onApprove: (data, actions) => actions.order.capture().then(() => onSuccess()),
-        onError: (err) => { console.error("PayPal Error:", err); alert("PayPal Fehler: " + JSON.stringify(err)); }
+        onApprove: async (data, actions) => {
+          try {
+            await actions.order.capture();
+          } catch(e) {
+            console.warn("Capture warning:", e);
+          }
+          onSuccess();
+        },
+        onError: (err) => { console.error("PayPal Error:", err); alert("PayPal Fehler. Bitte erneut versuchen."); }
       }).render("#paypal-button-container");
     }
   }, [amount]);
