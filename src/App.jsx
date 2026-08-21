@@ -283,28 +283,29 @@ function PayPalButton({ amount, onSuccess }) {
 
     function renderButton() {
       if (!containerRef.current || renderedRef.current) return;
-      if (containerRef.current.childElementCount > 0) return;
       renderedRef.current = true;
       window.paypal.Buttons({
         style: { layout: "vertical", color: "gold", shape: "rect", label: "pay" },
-        createOrder: (data, actions) => {
-          return actions.order.create({
-            purchase_units: [{
-              amount: { value: String(amount), currency_code: "EUR" },
-              description: "Q8 Billard Tischbuchung"
-            }]
+        createOrder: async () => {
+          const res = await fetch("/api/paypal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "create", amount })
           });
+          const data = await res.json();
+          return data.id;
         },
-        onApprove: (data, actions) => {
-          return actions.order.capture().then(() => {
-            onSuccess();
-          }).catch(() => {
-            onSuccess();
+        onApprove: async (data) => {
+          await fetch("/api/paypal", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "capture", orderID: data.orderID })
           });
+          onSuccess();
         },
         onError: (err) => {
           console.error("PayPal Error:", err);
-          onSuccess();
+          alert("PayPal Fehler. Bitte erneut versuchen.");
         }
       }).render(containerRef.current);
     }
@@ -312,11 +313,6 @@ function PayPalButton({ amount, onSuccess }) {
     if (window.paypal) {
       renderButton();
     } else {
-      const existing = document.querySelector('script[src*="paypal"]');
-      if (existing) {
-        existing.onload = renderButton;
-        return;
-      }
       const script = document.createElement("script");
       script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=EUR`;
       script.onload = renderButton;
