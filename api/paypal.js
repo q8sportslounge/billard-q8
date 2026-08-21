@@ -17,7 +17,24 @@ async function getAccessToken() {
   return data.access_token;
 }
 
+async function assignFreeTable(date, hour, duration) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/bookings?date=eq.${date}&select=hour,table_id`, {
+    headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` }
+  });
+  const existing = await res.json();
+  const TABLES = [1, 2];
+  for (let h = 0; h < duration; h++) {
+    const booked = new Set((Array.isArray(existing) ? existing : []).filter(b => b.hour === hour + h).map(b => b.table_id));
+    const free = TABLES.find(t => !booked.has(t));
+    if (!free) return null;
+    if (h === 0) return free;
+  }
+  return 1;
+}
+
 async function saveBookingAndSendMails(booking) {
+  const freeTable = await assignFreeTable(booking.date, booking.hour, booking.duration) || 1;
+  console.log("Assigned table:", freeTable);
   for (let h = 0; h < booking.duration; h++) {
     await fetch(`${SUPABASE_URL}/rest/v1/bookings`, {
       method: "POST",
@@ -29,7 +46,7 @@ async function saveBookingAndSendMails(booking) {
       },
       body: JSON.stringify({
         date: booking.date, hour: booking.hour + h, duration: booking.duration,
-        table_id: booking.table_id || 1, name: booking.name, phone: booking.phone,
+        table_id: freeTable, name: booking.name, phone: booking.phone,
         email: booking.email, persons: booking.persons, price: booking.price,
         buchungsart: booking.buchungsart, blocked: false, note: booking.note || ""
       })
