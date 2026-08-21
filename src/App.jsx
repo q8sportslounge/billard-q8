@@ -306,20 +306,28 @@ function PayPalButton({ amount, onSuccess }) {
     setLoading(false);
   };
 
+  const [clicked, setClicked] = React.useState(false);
+
   if (approvalUrl) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
-        <a href={approvalUrl} target="_blank" rel="noopener noreferrer"
-          style={{ display: "block", width: "100%", background: "#0070ba", color: "#fff", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}>
-          Jetzt bei PayPal bezahlen →
-        </a>
-        <div style={{ fontSize: 12, color: "#555", fontFamily: "sans-serif", textAlign: "center" }}>
-          Nach der Zahlung bei PayPal hier zurückkommen und bestätigen:
-        </div>
-        <button onClick={onSuccess}
-          style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 10, padding: "14px", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
-          Zahlung abgeschlossen ✓
-        </button>
+        {!clicked ? (
+          <a href={approvalUrl}
+            style={{ display: "block", width: "100%", background: "#0070ba", color: "#fff", borderRadius: 10, padding: "18px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif", textAlign: "center", textDecoration: "none", boxSizing: "border-box" }}
+            onClick={() => setClicked(true)}>
+            Jetzt bei PayPal bezahlen →
+          </a>
+        ) : (
+          <>
+            <div style={{ background: "#0f1a07", border: "1px solid #4a9c2f", borderRadius: 8, padding: "12px 16px", fontSize: 13, color: "#4a9c2f", fontFamily: "sans-serif", textAlign: "center" }}>
+              Nach der Zahlung bei PayPal hier bestätigen:
+            </div>
+            <button onClick={onSuccess}
+              style={{ background: "#4a9c2f", color: "#fff", border: "none", borderRadius: 10, padding: "16px", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "'Roboto Flex', sans-serif" }}>
+              Zahlung abgeschlossen ✓
+            </button>
+          </>
+        )}
       </div>
     );
   }
