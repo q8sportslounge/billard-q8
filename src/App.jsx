@@ -424,15 +424,33 @@ function AdminPanel() {
   );
 }
 
+function ConfirmationScreen({ token }) {
+  const [captured, setCaptured] = React.useState(false);
+  React.useEffect(() => {
+    if (token && !captured) {
+      setCaptured(true);
+      fetch("/api/paypal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "capture", orderID: token })
+      }).then(r => r.json()).then(d => console.log("Capture result:", d.status, d.id));
+    }
+  }, [token]);
+  return null;
+}
+
 export default function App() {
   // Check if customer returned from PayPal
   const urlParams = new URLSearchParams(window.location.search);
   const buchungStatus = urlParams.get('buchung');
 
   if (buchungStatus === 'bestaetigt') {
+    const token = urlParams.get('token');
+    // Capture will be triggered by ConfirmationScreen component
     return (
       <>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:wght@400;500;600;700;800&family=Phudu:wght@400;500;600;700;800;900&display=swap');`}</style>
+      <ConfirmationScreen token={token} />
       <div style={{ minHeight: "100vh", background: "#0a0a0a", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, fontFamily: "'Roboto Flex', sans-serif" }}>
         <div style={{ textAlign: "center", maxWidth: 400 }}>
           <div style={{ width: 80, height: 80, borderRadius: "50%", background: "#4a9c2f", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", fontSize: 36 }}>✓</div>
