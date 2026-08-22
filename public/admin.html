@@ -526,7 +526,7 @@ async function loadCalendar(date) {
 
   list.innerHTML = filtered.map(b => `
     <div class="booking-card ${b.blocked?'blocked':''}" onclick="openEditModal(${b.ids?b.ids[0]:b.id},'${date}')" style="cursor:pointer;">
-      <div class="booking-time">${fmtHour(b.hour)}<span style="font-size:13px;color:#555;font-weight:600;"> – ${fmtHour(b.endHour||b.hour+1)}</span></div>
+      <div class="booking-time">${fmtHour(b.hour)} – ${fmtHour(b.endHour||b.hour+1)}</div>
       <div class="booking-info">
         <div class="booking-badge ${b.blocked?'blocked':getBadgeClass(b.buchungsart)}">${b.blocked?'GESPERRT':getBadgeLabel(b.buchungsart)}</div>
         <div class="booking-name">${b.blocked?(b.note||'Gesperrt'):b.name||'—'}</div>
