@@ -64,6 +64,8 @@
 
     .slot-grid { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px; }
     .slot-btn { background:#111; border:2px solid #1e1e1e; color:#fff; border-radius:8px; padding:10px 14px; font-size:13px; font-weight:700; cursor:pointer; font-family:'Roboto Flex',sans-serif; }
+    .filter-btn { background:#111; border:2px solid #1e1e1e; color:#555; border-radius:20px; padding:7px 14px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Roboto Flex',sans-serif; white-space:nowrap; letter-spacing:0.05em; }
+    .filter-btn.active { border-color:#4a9c2f; color:#4a9c2f; }
     .slot-btn:active { border-color:#ff4444; color:#ff4444; }
     .type-btn { background:#111; border:2px solid #1e1e1e; color:#fff; border-radius:12px; padding:14px 8px; font-size:22px; cursor:pointer; font-family:"Roboto Flex",sans-serif; line-height:1.4; transition:all 0.15s; }
     .type-btn span { display:block; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#555; margin-top:4px; }
@@ -116,6 +118,13 @@
       <div style="text-align:center;font-size:10px;color:#555;padding:4px;font-weight:700;">So</div>
     </div>
     <div id="calGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:20px;"></div>
+    <div style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;">
+      <button class="filter-btn active" id="filter-all" onclick="setFilter('all')">Alle</button>
+      <button class="filter-btn" id="filter-billard" onclick="setFilter('billard')">🎱 Billard</button>
+      <button class="filter-btn" id="filter-dart" onclick="setFilter('dart')">🎯 Dart</button>
+      <button class="filter-btn" id="filter-tisch" onclick="setFilter('tisch')">🍽️ Tisch</button>
+      <button class="filter-btn" id="filter-blocked" onclick="setFilter('blocked')">⛔ Gesperrt</button>
+    </div>
     <div id="bookingList"><div class="loading">Tag auswählen...</div></div>
   </div>
 
@@ -166,6 +175,10 @@
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" type="text" id="addName" placeholder="Kundenname" /></div>
     <div class="form-group"><label class="form-label">Telefon *</label><input class="form-input" type="tel" id="addPhone" placeholder="+49..." /></div>
     <div class="form-group"><label class="form-label">Anmerkung</label><input class="form-input" type="text" id="addNote" placeholder="optional" /></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:14px 16px;background:#111;border:2px solid #1e1e1e;border-radius:10px;cursor:pointer;" onclick="document.getElementById('addPaid').click()">
+      <input type="checkbox" id="addPaid" style="width:18px;height:18px;cursor:pointer;accent-color:#4a9c2f;" />
+      <label for="addPaid" style="color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Bereits bezahlt</label>
+    </div>
     <button class="btn-add" onclick="addBooking()">Reservierung speichern ✓</button>
   </div>
 
@@ -192,6 +205,10 @@
     <div class="form-group"><label class="form-label">E-Mail</label><input class="form-input" type="email" id="editEmail" /></div>
     <div class="form-group"><label class="form-label">Personen</label><select class="form-select" id="editPersons"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></div>
     <div class="form-group"><label class="form-label">Anmerkung</label><input class="form-input" type="text" id="editNote" /></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;padding:14px 16px;background:#1a1a1a;border:2px solid #1e1e1e;border-radius:10px;cursor:pointer;" onclick="document.getElementById('editPaid').click()">
+      <input type="checkbox" id="editPaid" style="width:18px;height:18px;cursor:pointer;accent-color:#4a9c2f;" />
+      <label for="editPaid" style="color:#fff;font-size:14px;font-weight:600;cursor:pointer;">Bereits bezahlt</label>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
       <button onclick="saveEdit()" style="background:#4a9c2f;color:#fff;border:none;border-radius:10px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;">Speichern ✓</button>
       <button onclick="deleteBooking(currentEditId, currentEditDate)" style="background:transparent;border:2px solid #ff4444;color:#ff4444;border-radius:10px;padding:16px;font-size:15px;font-weight:700;cursor:pointer;">Löschen</button>
@@ -261,6 +278,15 @@ function getResourceLabel(art, table_id) {
   return `Billardtisch ${table_id}`;
 }
 
+let currentFilter = 'all';
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`filter-${f}`).classList.add('active');
+  if (currentDate) loadCalendar(currentDate);
+}
+
 let currentEditId = null;
 let currentEditDate = null;
 let allBookings = [];
@@ -276,6 +302,7 @@ async function openEditModal(id, date) {
   document.getElementById('editPhone').value = b.phone||'';
   document.getElementById('editEmail').value = b.email||'';
   document.getElementById('editNote').value = b.note||'';
+  document.getElementById('editPaid').checked = b.paid || (b.email && b.email.length > 0) || false;
   document.getElementById('editPersons').value = b.persons||2;
   document.getElementById('editModal').style.display = 'block';
 }
@@ -293,7 +320,8 @@ async function saveEdit() {
     phone: document.getElementById('editPhone').value,
     email: document.getElementById('editEmail').value,
     note: document.getElementById('editNote').value,
-    persons: parseInt(document.getElementById('editPersons').value)
+    persons: parseInt(document.getElementById('editPersons').value),
+    paid: document.getElementById('editPaid').checked
   };
   await fetch(`/api/bookings?id=${currentEditId}`, {
     method: 'PATCH',
@@ -448,19 +476,62 @@ async function loadCalendar(date) {
     return;
   }
   // Deduplicate: show each unique booking once (not per hour)
-  const seen = new Set();
-  const unique = data.filter(b => {
-    const key = b.blocked ? `blocked-${b.hour}` : `${b.name}-${b.hour}`;
-    if (seen.has(key)) return false;
-    seen.add(key); return true;
+  // Merge consecutive bookings by same customer
+  const merged = [];
+  const usedIds = new Set();
+  const sorted = [...data].sort((a,b) => a.hour - b.hour);
+  
+  for (const b of sorted) {
+    if (usedIds.has(b.id)) continue;
+    if (b.blocked) {
+      // Group blocked slots
+      const blockedGroup = sorted.filter(x => x.blocked && !usedIds.has(x.id));
+      if (blockedGroup.length > 0) {
+        const startHour = Math.min(...blockedGroup.map(x=>x.hour));
+        const endHour = Math.max(...blockedGroup.map(x=>x.hour)) + 1;
+        blockedGroup.forEach(x => usedIds.add(x.id));
+        merged.push({ ...blockedGroup[0], hour: startHour, endHour, ids: blockedGroup.map(x=>x.id) });
+      }
+    } else {
+      // Find all consecutive hours for same customer+type
+      const group = sorted.filter(x => 
+        !usedIds.has(x.id) && 
+        !x.blocked &&
+        x.name === b.name && 
+        x.buchungsart === b.buchungsart &&
+        x.table_id === b.table_id
+      );
+      if (group.length > 0) {
+        const startHour = Math.min(...group.map(x=>x.hour));
+        const endHour = Math.max(...group.map(x=>x.hour)) + 1;
+        group.forEach(x => usedIds.add(x.id));
+        merged.push({ ...b, hour: startHour, endHour, ids: group.map(x=>x.id) });
+      }
+    }
+  }
+
+  // Apply filter
+  const filtered = currentFilter === 'all' ? merged : merged.filter(b => {
+    if (currentFilter === 'blocked') return b.blocked;
+    if (currentFilter === 'billard') return !b.blocked && (b.buchungsart === 'normal' || b.buchungsart === 'tag');
+    if (currentFilter === 'dart') return !b.blocked && b.buchungsart === 'dart';
+    if (currentFilter === 'tisch') return !b.blocked && (b.buchungsart === 'tisch' || (b.buchungsart && b.buchungsart.startsWith('tisch-')));
+    return true;
   });
-  list.innerHTML = unique.map(b => `
-    <div class="booking-card ${b.blocked?'blocked':''}" onclick="openEditModal(${b.id},'${date}')" style="cursor:pointer;">
-      <div class="booking-time">${fmtHour(b.hour)}</div>
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><p>Keine Buchungen für diesen Filter.</p></div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(b => `
+    <div class="booking-card ${b.blocked?'blocked':''}" onclick="openEditModal(${b.ids?b.ids[0]:b.id},'${date}')" style="cursor:pointer;">
+      <div class="booking-time">${fmtHour(b.hour)}<span style="font-size:13px;color:#555;font-weight:600;"> – ${fmtHour(b.endHour||b.hour+1)}</span></div>
       <div class="booking-info">
         <div class="booking-badge ${b.blocked?'blocked':getBadgeClass(b.buchungsart)}">${b.blocked?'GESPERRT':getBadgeLabel(b.buchungsart)}</div>
-        <div class="booking-name">${b.blocked?'Gesperrt':b.name||'—'}</div>
+        <div class="booking-name">${b.blocked?(b.note||'Gesperrt'):b.name||'—'}</div>
         <div class="booking-meta">${b.blocked?'':`${b.persons||1} Pers.${b.price?` · ${b.price}€`:''}${b.table_id?' · '+getResourceLabel(b.buchungsart,b.table_id):''}<br>${b.phone||''} ${b.email?'· '+b.email:''}`}</div>
+        ${(!b.blocked&&b.email)?`<div style="margin-top:4px"><span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;background:#0f1a07;color:#4a9c2f;border:1px solid #2d6b1a">✓ Online bezahlt</span></div>`:''}
       </div>
       <div style="color:#555;font-size:18px;padding:0 4px;">›</div>
     </div>
@@ -551,10 +622,12 @@ async function addBooking() {
   for (let h=0; h<duration; h++) {
     await sb('POST','bookings',{date,hour:hour+h,duration,table_id,name,phone,email:'',persons,price,buchungsart,blocked:false,note});
   }
+  const paid = document.getElementById('addPaid').checked;
   showToast(`✅ ${name} gespeichert!`);
   document.getElementById('addName').value='';
   document.getElementById('addPhone').value='';
   document.getElementById('addNote').value='';
+  document.getElementById('addPaid').checked=false;
   btn.textContent = 'Reservierung speichern ✓';
   btn.disabled = false;
   if (date===currentDate) loadCalendar(currentDate);
@@ -594,8 +667,9 @@ async function renderBlockPanel() {
 }
 
 async function blockSlot(date, hour) {
-  await sb('POST','bookings',{date,hour,duration:1,table_id:1,name:'GESPERRT',blocked:true});
-  showToast(`⛔ ${fmtHour(hour)} gesperrt`);
+  const reason = prompt('Grund für die Sperrung (optional):') || '';
+  await sb('POST','bookings',{date,hour,duration:1,table_id:1,name:'GESPERRT',phone:'',email:'',persons:2,note:reason,blocked:true});
+  showToast(`⛔ ${fmtHour(hour)} gesperrt${reason ? ': ' + reason : ''}`);
   renderBlockPanel();
 }
 
